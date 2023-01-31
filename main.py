@@ -1,6 +1,8 @@
 # This is a sample Python script.
 import socket
-from multiprocessing import Process, Queue
+import time
+import threading
+import queue
 from readchar import readkey, key
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
@@ -10,11 +12,6 @@ username = ''
 
 def byte_string_decode(byte_string):
     return byte_string.decode('utf-8')
-
-
-def wait_for_messages(q, sock):
-    msg = sock.recv(1024)
-    q.put(byte_string_decode(msg))
 
 
 def try_connect(sock):
@@ -29,11 +26,10 @@ def try_connect(sock):
         try_connect(sock)
 
 
-def spawn_process(sock):
-    q = Queue()
-    p = Process(target=wait_for_messages, args=(q, sock,))
-    p.start()
-    return q
+def read_kb_input(q):
+    while True:
+        input_str = input()
+        q.put(input_str)
 
 
 def set_username(sock):
@@ -45,12 +41,17 @@ def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try_connect(sock)
     set_username(sock)
-    q = spawn_process(sock)
+    q = queue.Queue()
+    p = threading.Thread(target=read_kb_input, args=(q,), daemon=True)
+    p.start()
     while True:
-        msg_to_send = input()
-        msg_received = q.get()
-        print(msg_received)
-        sock.send(bytes(f'[{username}] {msg_to_send}', encoding='UTF-8'))
+        if q.qsize() > 0:
+            msg_typed = q.get()
+            print(msg_typed)
+            sock.send(bytes(f'[{username}] {msg_typed}', encoding='UTF-8'))
+        #  new_chat_msg = byte_string_decode(sock.recv(1024))
+        #  print(new_chat_msg)
+        time.sleep(0.01)
 
 
 # Press the green button in the gutter to run the script.
